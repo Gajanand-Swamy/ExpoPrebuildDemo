@@ -1,0 +1,58 @@
+# .github/workflows/build-and-upload.yml
+name: Build and Upload AAB
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node & Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          npm install -g expo-cli
+          npm ci
+          bundle install
+
+      - name: Generate android project
+        run: npx expo prebuild --platform android --clean
+
+      - name: Inject keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/my-upload-key.jks
+
+      - name: Add signing config
+        run: |
+          cat >> android/gradle.properties <<EOF
+          MYAPP_UPLOAD_STORE_FILE=my-upload-key.jks
+          MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.KEY_ALIAS }}
+          MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
+          MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}
+          EOF
+
+      - name: Build signed AAB
+        run: |
+          cd android
+          ./gradlew bundleRelease
+
+      - name: Upload using Fastlane
+        run: |
+          echo "${{ secrets.PLAY_STORE_JSON }}" | base64 -d > fastlane/playstore.json
+          bundle exec fastlane upload
