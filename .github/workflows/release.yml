@@ -53,7 +53,7 @@ jobs:
       - name: Build signed AAB
         run: |
           cd android
-          ./gradlew bundleRelease
+          ./gradlew app:bundleRelease
 
       - name: Upload AAB to Play Store via Fastlane
         working-directory: fastlane
