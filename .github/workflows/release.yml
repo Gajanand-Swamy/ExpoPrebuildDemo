@@ -1,10 +1,10 @@
-# .github/workflows/build-and-upload.yml
 name: Build and Upload AAB
 
 on:
   push:
     branches:
       - main
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -13,23 +13,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Node & Ruby
+      - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.1
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      - name: Install dependencies
+      - name: Install system & JS dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y openjdk-17-jdk
           npm install -g expo-cli
           npm ci
-          bundle install
+
+      - name: Install Ruby gems from fastlane folder
+        working-directory: fastlane
+        run: bundle install
 
       - name: Generate android project
         run: npx expo prebuild --platform android --clean
@@ -52,7 +55,8 @@ jobs:
           cd android
           ./gradlew bundleRelease
 
-      - name: Upload using Fastlane
+      - name: Upload AAB to Play Store via Fastlane
+        working-directory: fastlane
         run: |
-          echo "${{ secrets.PLAY_STORE_JSON }}" | base64 -d > fastlane/playstore.json
+          echo "${{ secrets.PLAY_STORE_JSON }}" | base64 -d > playstore.json
           bundle exec fastlane upload
